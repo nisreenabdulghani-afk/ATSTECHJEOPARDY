@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Critical Thinking Jeopardy</title>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --board:#10173a; --board2:#1a2354; --tile:#212e6e; --tile-hi:#2c3c8f;
+    --gold:#f5b53f; --gold-deep:#d8951a; --ink:#f5f2ea; --muted:#9aa3cf;
+    --right:#3ecf8e; --wrong:#f06262;
+    --t1:#f5b53f; --t2:#5ad1e6; --t3:#f08bc0; --t4:#8ef07e;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:'Inter',sans-serif; color:var(--ink); min-height:100vh;
+    background:radial-gradient(1200px 600px at 50% -10%, #2a3a8c 0%, var(--board) 55%, #0a0f28 100%);
+    padding:18px 14px 40px;
+  }
+  header{text-align:center; margin-bottom:14px;}
+  h1{
+    font-family:'Anton',sans-serif; font-size:clamp(1.6rem,4.5vw,3rem); letter-spacing:.06em;
+    color:var(--gold); text-shadow:0 3px 0 #7a4d00, 0 8px 22px rgba(0,0,0,.55); text-transform:uppercase;
+  }
+  header p{color:var(--muted); font-size:.85rem; margin-top:4px;}
+
+  /* Teams */
+  .teams{display:grid; grid-template-columns:repeat(4,minmax(140px,1fr)); gap:10px; max-width:1050px; margin:0 auto 16px;}
+  .team{
+    background:var(--board2); border:2px solid transparent; border-radius:12px; padding:10px 12px;
+    cursor:pointer; transition:transform .12s, border-color .12s; text-align:center; position:relative;
+  }
+  .team:hover{transform:translateY(-2px);}
+  .team.active{border-color:var(--team-color); box-shadow:0 0 0 3px rgba(245,181,63,.12), 0 6px 18px rgba(0,0,0,.4);}
+  .team.active::after{
+    content:'PLAYING'; position:absolute; top:-9px; left:50%; transform:translateX(-50%);
+    background:var(--team-color); color:#111; font-size:.58rem; font-weight:800; letter-spacing:.12em;
+    padding:2px 8px; border-radius:99px;
+  }
+  .team input{
+    background:transparent; border:none; color:var(--ink); font-family:'Inter',sans-serif; font-weight:800;
+    font-size:.9rem; text-align:center; width:100%; outline:none; border-bottom:1px dashed rgba(255,255,255,.18);
+    padding-bottom:2px;
+  }
+  .team .score{font-family:'Anton',sans-serif; font-size:1.7rem; color:var(--team-color); margin-top:4px; letter-spacing:.04em;}
+  .adjust{display:flex; justify-content:center; gap:8px; margin-top:6px;}
+  .adjust button{
+    background:#2a3576; border:none; color:var(--ink); border-radius:8px; min-width:52px; height:26px;
+    padding:0 8px; font-weight:800; font-size:.78rem; cursor:pointer; line-height:1; transition:filter .1s, transform .1s;
+  }
+  .adjust button:hover{filter:brightness(1.3); transform:translateY(-1px);}
+  .team:nth-child(1){--team-color:var(--t1);} .team:nth-child(2){--team-color:var(--t2);}
+  .team:nth-child(3){--team-color:var(--t3);} .team:nth-child(4){--team-color:var(--t4);}
+
+  /* Board */
+  .board{display:grid; grid-template-columns:repeat(5,1fr); gap:8px; max-width:1050px; margin:0 auto;}
+  .cat{
+    background:linear-gradient(180deg, var(--gold) 0%, var(--gold-deep) 100%); color:#241500;
+    font-weight:800; font-size:clamp(.6rem,1.4vw,.82rem); text-transform:uppercase; letter-spacing:.05em;
+    border-radius:10px; padding:12px 8px; text-align:center; display:flex; align-items:center; justify-content:center;
+    min-height:64px; box-shadow:0 3px 0 #6e4a00;
+  }
+  .cell{
+    background:linear-gradient(180deg, var(--tile-hi) 0%, var(--tile) 100%);
+    border:none; border-radius:10px; color:var(--gold); font-family:'Anton',sans-serif;
+    font-size:clamp(1.2rem,3.2vw,2rem); letter-spacing:.05em; padding:20px 4px; cursor:pointer;
+    box-shadow:0 3px 0 #0c1233; transition:transform .1s, filter .1s;
+  }
+  .cell:hover:not(:disabled){transform:translateY(-2px); filter:brightness(1.18);}
+  .cell:disabled{background:#161d42; color:#3a4479; box-shadow:none; cursor:default;}
+
+  /* Inline question panel — replaces the board in-place so the scoreboard stays visible */
+  .panel{
+    display:none; max-width:1050px; margin:0 auto;
+    background:linear-gradient(180deg,#1c2761,#131b47); border:1px solid rgba(245,181,63,.35);
+    border-radius:16px; padding:22px 22px; box-shadow:0 20px 60px rgba(0,0,0,.45);
+  }
+  .panel.open{display:block;}
+  .board.hidden{display:none;}
+  .panel .meta{display:flex; justify-content:space-between; color:var(--muted); font-size:.72rem;
+    text-transform:uppercase; letter-spacing:.12em; font-weight:800; margin-bottom:12px;}
+  .panel .meta .pts{color:var(--gold);}
+  .panel h2{font-size:clamp(1rem,2.4vw,1.3rem); font-weight:800; line-height:1.45; margin-bottom:16px;}
+  .opts{display:grid; gap:9px;}
+  .opt{
+    display:flex; gap:10px; align-items:flex-start; text-align:left; background:#232f74;
+    border:2px solid transparent; border-radius:10px; padding:11px 13px; color:var(--ink);
+    font-family:'Inter',sans-serif; font-size:.92rem; cursor:pointer; transition:border-color .12s, background .12s;
+  }
+  .opt:hover:not(:disabled){border-color:var(--gold);}
+  .opt .key{font-family:'Anton',sans-serif; color:var(--gold); min-width:18px;}
+  .opt.correct{background:rgba(62,207,142,.18); border-color:var(--right);}
+  .opt.wrong{background:rgba(240,98,98,.18); border-color:var(--wrong);}
+  .opt:disabled{cursor:default; opacity:.92;}
+  .verdict{margin-top:14px; font-weight:800; font-size:.95rem; display:none;}
+  .verdict.right{color:var(--right); display:block;}
+  .verdict.wrong{color:var(--wrong); display:block;}
+
+  .award{margin-top:16px; display:none;}
+  .award.show{display:block;}
+  .award p{font-size:.72rem; text-transform:uppercase; letter-spacing:.12em; color:var(--muted); font-weight:800; margin-bottom:8px;}
+  .award-btns{display:flex; flex-wrap:wrap; gap:8px;}
+  .award-btns button{
+    border:none; border-radius:99px; padding:8px 14px; font-weight:800; font-size:.8rem; cursor:pointer;
+    background:var(--gold); color:#241500; transition:transform .1s;
+  }
+  .award-btns button:hover{transform:translateY(-1px);}
+  .award-btns .minus{background:#39428a; color:var(--ink);}
+  .award-btns .none{background:transparent; color:var(--muted); border:1px solid #39428a;}
+
+  .controls{max-width:1050px; margin:14px auto 0; display:flex; justify-content:center;}
+  .controls button{
+    background:transparent; border:1px solid #39428a; color:var(--muted); border-radius:99px;
+    padding:7px 18px; font-weight:700; font-size:.78rem; cursor:pointer;
+  }
+  .controls button:hover{color:var(--ink); border-color:var(--gold);}
+
+  .banner{
+    max-width:1050px; margin:16px auto 0; text-align:center; display:none;
+    background:linear-gradient(180deg, var(--gold), var(--gold-deep)); color:#241500;
+    border-radius:14px; padding:16px; font-weight:800; font-size:1.1rem; box-shadow:0 4px 0 #6e4a00;
+  }
+  .banner.show{display:block;}
+
+  @media (max-width:640px){
+    .teams{grid-template-columns:repeat(2,1fr);}
+    .cell{padding:14px 2px;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Critical Thinking Jeopardy</h1>
+  <p>Correct answers auto-add points to the playing team. Wrong answers pass a random steal chance to another team. Use −/+ to override.</p>
+</header>
+
+<div class="teams" id="teams"></div>
+<div class="board" id="board"></div>
+
+<div class="panel" id="panel">
+  <div class="meta"><span id="mCat"></span><span class="pts" id="mPts"></span></div>
+  <h2 id="mQ"></h2>
+  <div class="opts" id="mOpts"></div>
+  <div class="verdict" id="mVerdict"></div>
+  <div class="award" id="mAward">
+    <div class="award-btns"><button onclick="finish()">Done — back to board</button></div>
+  </div>
+</div>
+
+<div class="controls"><button onclick="resetGame()">Reset game</button></div>
+<div class="banner" id="banner"></div>
+
+<script>
+const DATA = [
+  {
+    cat: "What Is Critical Thinking in Teaching?",
+    qs: [
+      { q:"Critical thinking is best defined as the ability to…",
+        o:["memorize facts and repeat them quickly","analyze and evaluate ideas before judging","accept expert opinions without question","complete classroom tasks ahead of time"], a:1 },
+      { q:"In the classroom, critical thinking mainly helps students to…",
+        o:["question, weigh, and judge new information","recall, restate, and copy new information","collect, store, and forget new information","hear, accept, and repeat new information"], a:0 },
+      { q:"In Bloom's Taxonomy, critical thinking is most linked to…",
+        o:["remembering terms and naming basic facts","describing content and restating key ideas","analyzing, evaluating, and creating new ideas","listing examples and copying model answers"], a:2 },
+      { q:"A classroom that builds critical thinking usually encourages…",
+        o:["silent copying of notes from every board","open questions and discussion of evidence","fast recall drills with one right answer","reading aloud without pausing to reflect"], a:1 },
+      { q:"Critical thinking is different from memorization because it requires…",
+        o:["repeating key facts in the correct order","storing information for the coming exam","judging evidence and reasoning about ideas","matching answers to a given model sheet"], a:2 }
+    ]
+  },
+  {
+    cat: "Which Prompt Shows Critical Thinking?",
+    qs: [
+      { q:"Which prompt asks students to think critically?",
+        o:["\"List the planets in their correct order.\"","\"State the year this event took place.\"","\"Why might this source be biased here?\"","\"Copy the definition into your notebook.\""], a:2 },
+      { q:"Which prompt pushes students beyond simple recall?",
+        o:["\"Compare both solutions and justify one.\"","\"Underline the key words in the passage.\"","\"Repeat the rule we learned last lesson.\"","\"Match each term to its given picture.\""], a:0 },
+      { q:"Which prompt asks students to examine evidence?",
+        o:["\"Say the definition again more loudly.\"","\"What evidence supports this claim here?\"","\"Write the title neatly at the very top.\"","\"Circle the answer shown on the board.\""], a:1 },
+      { q:"Which prompt encourages 'what if' reasoning?",
+        o:["\"Read the paragraph out to your partner.\"","\"Copy this diagram exactly as displayed.\"","\"Recite the steps in their exact order.\"","\"How would results change if one part changed?\""], a:3 },
+      { q:"Which prompt asks students to evaluate an argument?",
+        o:["\"Judge this argument's strengths and weaknesses.\"","\"Count how many sentences the text contains.\"","\"Name the author printed on the first page.\"","\"Highlight every date found in the article.\""], a:0 }
+    ]
+  },
+  {
+    cat: "Strategies for Critical Thinking",
+    qs: [
+      { q:"Socratic questioning is a strategy where the teacher…",
+        o:["guides learners using deep probing questions","reads answers aloud for learners to copy","gives learners the solution before the task","tests learners with quick recall questions"], a:0 },
+      { q:"In Think–Pair–Share, students first think alone, then…",
+        o:["write the answer and submit it for marks","discuss with a partner, then tell the class","wait silently until the teacher shares it","vote on the answer without any discussion"], a:1 },
+      { q:"Classroom debates build critical thinking because students must…",
+        o:["speak louder than the other team members","memorize a script written by the teacher","defend a position with reasons and evidence","agree quickly to finish the activity early"], a:2 },
+      { q:"In a KWL chart, the three columns stand for…",
+        o:["Know, Want to know, and finally Learned","Keep, Watch carefully, and then Listen","Knowledge, Wisdom, and Logic combined","Key words, Writing task, and List of facts"], a:0 },
+      { q:"De Bono's Six Thinking Hats strategy asks learners to…",
+        o:["choose one single viewpoint and keep it","copy six model answers from the board","rank six classmates by their best ideas","examine one problem from six viewpoints"], a:3 }
+    ]
+  },
+  {
+    cat: "World Cup 2026 ⚽",
+    qs: [
+      { q:"The 2026 FIFA World Cup is hosted by which countries?",
+        o:["Qatar alone","USA, Canada, and Mexico","Spain, Portugal, and Morocco","Brazil and Argentina"], a:1 },
+      { q:"How many national teams play in the 2026 World Cup?",
+        o:["32 teams","24 teams","48 teams","64 teams"], a:2 },
+      { q:"The 2026 World Cup Final is planned at which stadium?",
+        o:["Wembley Stadium, London","MetLife Stadium, New Jersey","Azteca Stadium, Mexico City","Rose Bowl, California"], a:1 },
+      { q:"Which team entered 2026 as the defending World Cup champions?",
+        o:["France","Brazil","Germany","Argentina"], a:3 },
+      { q:"The three official 2026 mascots are Maple, Zayu, and Clutch — a moose, a jaguar, and a…",
+        o:["Bald eagle","Grizzly bear","Golden lion","Desert falcon"], a:0 }
+    ]
+  },
+  {
+    cat: "WC 2026: Games, Teams & Results 🏆",
+    qs: [
+      { q:"Which team knocked the USA out of the tournament with a 4–1 win in the Round of 16?",
+        o:["Belgium","Brazil","England","Spain"], a:0 },
+      { q:"In one of the biggest shocks, which nation beat five-time champions Brazil 2–1 in the Round of 16?",
+        o:["Morocco","Norway","Egypt","Paraguay"], a:1 },
+      { q:"Spain beat Portugal 1–0 in the Round of 16 — a match that ended the World Cup career of which legend?",
+        o:["Lionel Messi","Neymar","Cristiano Ronaldo","Luka Modrić"], a:2 },
+      { q:"Germany crashed out early in the Round of 32, losing on penalties to which team?",
+        o:["Ecuador","Morocco","Colombia","Paraguay"], a:3 },
+      { q:"Which of these is a REAL 2026 quarterfinal matchup?",
+        o:["Brazil vs Germany","Morocco vs France","Portugal vs Mexico","USA vs Canada"], a:1 }
+    ]
+  }
+];
+
+const PTS = [100,200,300,400,500];
+const TEAM_NAMES=["The Brainstormers","Sherlock Homies","The Fact Checkers","Big Brain Energy"];
+let scores=[0,0,0,0], activeTeam=0, answered=new Set(), current=null, currentPts=100;
+
+const teamsEl=document.getElementById('teams');
+function renderTeams(){
+  teamsEl.innerHTML='';
+  for(let i=0;i<4;i++){
+    const d=document.createElement('div');
+    d.className='team'+(i===activeTeam?' active':'');
+    d.innerHTML=`<input value="${TEAM_NAMES[i]}" onclick="event.stopPropagation()" aria-label="Team ${i+1} name">
+                 <div class="score">${scores[i]}</div>
+                 <div class="adjust">
+                   <button class="minus-btn" onclick="event.stopPropagation(); adjust(${i},-1)" aria-label="Deduct points">−${currentPts}</button>
+                   <button class="plus-btn" onclick="event.stopPropagation(); adjust(${i},1)" aria-label="Add points">+${currentPts}</button>
+                 </div>`;
+    d.onclick=()=>{activeTeam=i; refreshTeams();};
+    teamsEl.appendChild(d);
+  }
+}
+function refreshTeams(){
+  [...teamsEl.children].forEach((d,i)=>{
+    d.classList.toggle('active', i===activeTeam);
+    d.querySelector('.score').textContent=scores[i];
+    d.querySelector('.minus-btn').textContent='−'+currentPts;
+    d.querySelector('.plus-btn').textContent='+'+currentPts;
+  });
+}
+
+function adjust(i,sign){
+  scores[i]+=sign*currentPts;
+  refreshTeams();
+}
+
+const boardEl=document.getElementById('board');
+function renderBoard(){
+  boardEl.innerHTML='';
+  DATA.forEach(c=>{
+    const h=document.createElement('div'); h.className='cat'; h.textContent=c.cat; boardEl.appendChild(h);
+  });
+  for(let r=0;r<5;r++){
+    for(let c=0;c<5;c++){
+      const key=c+'-'+r;
+      const b=document.createElement('button');
+      b.className='cell'; b.textContent=PTS[r]; b.disabled=answered.has(key);
+      b.onclick=()=>openQ(c,r);
+      boardEl.appendChild(b);
+    }
+  }
+}
+
+const boardWrap=document.getElementById('board');
+const panel=document.getElementById('panel');
+function openQ(c,r){
+  current={c,r,key:c+'-'+r,phase:'playing',stealTeam:null};
+  currentPts=PTS[r];
+  refreshTeams();
+  const q=DATA[c].qs[r];
+  const names=[...teamsEl.querySelectorAll('input')].map(inp=>inp.value||'Team');
+  document.getElementById('mCat').textContent=DATA[c].cat+' · 🎯 '+names[activeTeam];
+  document.getElementById('mPts').textContent=PTS[r]+' points';
+  document.getElementById('mQ').textContent=q.q;
+  const opts=document.getElementById('mOpts'); opts.innerHTML='';
+  const keys=['A','B','C','D'];
+  q.o.forEach((t,i)=>{
+    const b=document.createElement('button'); b.className='opt';
+    b.innerHTML=`<span class="key">${keys[i]}</span><span>${t}</span>`;
+    b.onclick=()=>pick(i);
+    opts.appendChild(b);
+  });
+  const v=document.getElementById('mVerdict'); v.className='verdict'; v.textContent='';
+  document.getElementById('mAward').classList.remove('show');
+  boardWrap.classList.add('hidden');
+  panel.classList.add('open');
+  panel.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function pick(i){
+  const q=DATA[current.c].qs[current.r];
+  const opts=[...document.getElementById('mOpts').children];
+  const v=document.getElementById('mVerdict');
+  const names=[...teamsEl.querySelectorAll('input')].map(inp=>inp.value||'Team');
+
+  if(current.phase==='playing'){
+    if(i===q.a){
+      // Active team is correct → auto-award
+      scores[activeTeam]+=currentPts;
+      refreshTeams();
+      opts.forEach((b,j)=>{ b.disabled=true; if(j===q.a) b.classList.add('correct'); });
+      v.className='verdict right';
+      v.textContent=`✔ Correct! +${currentPts} to ${names[activeTeam]}.`;
+      current.phase='done';
+      document.getElementById('mAward').classList.add('show');
+    } else {
+      // Wrong → random steal chance to one of the other three teams
+      opts[i].disabled=true; opts[i].classList.add('wrong');
+      const others=[0,1,2,3].filter(x=>x!==activeTeam);
+      current.stealTeam=others[Math.floor(Math.random()*others.length)];
+      current.phase='steal';
+      v.className='verdict wrong';
+      v.textContent=`✘ Wrong! 🎲 Steal chance goes to ${names[current.stealTeam]} — pick an answer.`;
+      // Highlight the steal team in the scoreboard
+      [...teamsEl.children].forEach((d,idx)=>{
+        d.classList.toggle('active', idx===current.stealTeam);
+      });
+    }
+  } else if(current.phase==='steal'){
+    opts.forEach((b,j)=>{ b.disabled=true; if(j===q.a) b.classList.add('correct'); else if(j===i && i!==q.a) b.classList.add('wrong'); });
+    if(i===q.a){
+      scores[current.stealTeam]+=currentPts;
+      refreshTeams();
+      v.className='verdict right';
+      v.textContent=`✔ Stolen! +${currentPts} to ${names[current.stealTeam]}.`;
+    } else {
+      v.className='verdict wrong';
+      v.textContent=`✘ No steal — no points awarded. Correct answer highlighted.`;
+    }
+    current.phase='done';
+    document.getElementById('mAward').classList.add('show');
+  }
+}
+
+function finish(){
+  answered.add(current.key);
+  panel.classList.remove('open');
+  boardWrap.classList.remove('hidden');
+  activeTeam=(activeTeam+1)%4;
+  renderBoard(); refreshTeams();
+  if(answered.size===25) showWinner();
+}
+
+function showWinner(){
+  const names=[...teamsEl.querySelectorAll('input')].map(inp=>inp.value||'Team');
+  const max=Math.max(...scores);
+  const winners=names.filter((_,i)=>scores[i]===max);
+  const b=document.getElementById('banner');
+  b.textContent = winners.length>1
+    ? `🏆 It's a tie between ${winners.join(' & ')} with ${max} points!`
+    : `🏆 ${winners[0]} wins with ${max} points!`;
+  b.classList.add('show');
+}
+
+function resetGame(){
+  scores=[0,0,0,0]; answered=new Set(); activeTeam=0;
+  document.getElementById('banner').classList.remove('show');
+  renderTeams(); renderBoard();
+}
+
+renderTeams(); renderBoard();
+</script>
+</body>
+</html>
